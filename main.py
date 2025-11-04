@@ -8,6 +8,7 @@ import struct
 import sys
 import typing
 import pyzstd
+import binascii
 
 
 def abort(msg: str):
@@ -94,8 +95,13 @@ def convert_yaml_to_rstb(infile: str, outfile: str, compressed: bool = True):
     resources = []
     with open(infile, "r") as f:
         for line in f:
-            crc, size = line.split(":")
-            resources.append((int(crc, 16), int(size)))
+            resource_path, size = line.split(":")
+            crc = 0
+            try:
+                crc = int(resource_path, 16)
+            except ValueError:
+                crc = binascii.crc32(resource_path.encode("ascii")) & 0xffffffff
+            resources.append((crc, int(size)))
 
     with open(outfile, "wb") as f:
         write_string(f, "RESTBL")    # signature
@@ -104,8 +110,8 @@ def convert_yaml_to_rstb(infile: str, outfile: str, compressed: bool = True):
         write_u32(f, len(resources)) # crc table length
         write_u32(f, 0)              # path table length
 
-        for crc, size in resources:
-            write_u32(f, crc)
+        for resource_path, size in resources:
+            write_u32(f, resource_path)
             write_u32(f, size)
 
 
